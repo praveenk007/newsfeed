@@ -1,5 +1,6 @@
 package com.assignment.newsfeed.dto.tp;
 
+import com.assignment.newsfeed.pojos.Story;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
@@ -38,4 +39,17 @@ public class StoryDTO {
 	private int score;
 
 	private List<Long> children;
+
+	public Story toStory() {
+		return Story.builder()
+				.children(getChildren())
+				.score(getScore())
+				.type(getType())
+				.title(getTitle())
+				.source(getSource())
+				.timestamp(getTimestamp())
+				.author(getAuthor())
+				.id(getId())
+				.build();
+	}
 }

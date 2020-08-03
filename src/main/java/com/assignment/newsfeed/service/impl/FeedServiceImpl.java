@@ -1,7 +1,11 @@
 package com.assignment.newsfeed.service.impl;
 
+import com.assignment.newsfeed.dto.tp.CommentDTO;
+import com.assignment.newsfeed.dto.tp.StoryDTO;
+import com.assignment.newsfeed.dto.tp.UserDTO;
 import com.assignment.newsfeed.pojos.Comment;
 import com.assignment.newsfeed.pojos.Story;
+import com.assignment.newsfeed.pojos.User;
 import com.assignment.newsfeed.service.CacheService;
 import com.assignment.newsfeed.service.FeedService;
 import com.assignment.newsfeed.service.NewsService;
@@ -11,12 +15,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -41,6 +45,9 @@ public class FeedServiceImpl implements FeedService {
 	@Autowired
 	private CacheService<Story> storyCacheService;
 
+	@Autowired
+	private CacheService<User> userCacheService;
+
 	@Override
 	public Mono<List<Story>> fetchStories() {
 		return listCacheService.get("top_stories", ArrayNode.class)
@@ -63,7 +70,7 @@ public class FeedServiceImpl implements FeedService {
 	private Mono<List<Story>> fetchAndSaveTopStories() {
 		return newsService.fetchStories(10)
 				.map(stories -> {
-					final List<Story> sortedStories = stories.stream().sorted(Story::compareTo).collect(Collectors.toList());
+					final List<Story> sortedStories = stories.stream().map(StoryDTO::toStory).sorted(Story::compareTo).collect(Collectors.toList());
 					final ObjectMapper objectMapper = new ObjectMapper();
 					ArrayNode arrayNode = objectMapper.createArrayNode();
 					sortedStories.forEach(story -> {
@@ -94,28 +101,50 @@ public class FeedServiceImpl implements FeedService {
 
 	private Mono<List<Comment>> saveStoryAndFetchCommentsFromService(final long storyId) {
 		return storyCacheService.get("story_" + storyId, Story.class)
-				.map(this::getCommentsFromServiceAndSaveInCache)
-				.switchIfEmpty(fetchStoryAndCommentsFromService(storyId));
+				.flatMap(story -> getCommentsFromServiceAndSaveInCache(story)
+					.flatMap(comment -> getUser(comment.getAuthor()).map(user -> {
+						comment.setProfileAge(user.getProfileAge());
+						return comment;
+					})).collectList())
+				.switchIfEmpty(fetchStoryAndCommentsFromService(storyId).collectList());
 	}
 
-	private List<Comment> getCommentsFromServiceAndSaveInCache(final Story story) {
+	private Mono<User> getUser(final String userId) {
+		return userCacheService.get("user_" + userId, User.class)
+				.switchIfEmpty(getUserFromServiceAndSaveInCache(userId));
+
+	}
+
+	private Mono<User> getUserFromServiceAndSaveInCache(final String userId) {
+		final UserDTO userDTO = newsService.fetchUser(userId);
+		final User user = userDTO.toUser();
+		userCacheService.set("user_" + userId, user, User.class).subscribe();
+		return Mono.just(user);
+	}
+
+	private Flux<Comment> getCommentsFromServiceAndSaveInCache(final Story story) {
 		final List<Comment> commentsFromService = newsService
 				.fetchComments(story.getChildren())
 				.stream()
+				.map(CommentDTO::toComment)
 				.sorted(Comment::compareTo)
 				.collect(Collectors.toList());
-
 		final ObjectMapper objectMapper = new ObjectMapper();
 		ArrayNode arrayNode = objectMapper.createArrayNode();
 		commentsFromService.forEach(comment -> arrayNode.add(objectMapper.convertValue(comment, JsonNode.class)));
 		listCacheService.set("comments_" + story.getId(), arrayNode, ArrayNode.class).subscribe();
-		return commentsFromService;
+		return Flux.fromIterable(commentsFromService);
 	}
 
-	private Mono<List<Comment>> fetchStoryAndCommentsFromService(final long storyId) {
-		return newsService.fetchStoryById(storyId).map(story -> {
+	private Flux<Comment> fetchStoryAndCommentsFromService(final long storyId) {
+		return newsService.fetchStoryById(storyId).flatMapMany(storyDTO -> {
+			final Story story = storyDTO.toStory();
 			storyCacheService.set("story_" + storyId, story, Story.class).subscribe();
-			return getCommentsFromServiceAndSaveInCache(story);
+			return getCommentsFromServiceAndSaveInCache(story)
+					.flatMap(comment -> getUser(comment.getAuthor()).map(user -> {
+						comment.setProfileAge(user.getProfileAge());
+						return comment;
+					}));
 		});
 	}
 }

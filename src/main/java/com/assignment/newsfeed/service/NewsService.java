@@ -1,16 +1,19 @@
 package com.assignment.newsfeed.service;
 
-import com.assignment.newsfeed.pojos.Comment;
-import com.assignment.newsfeed.pojos.Story;
+import com.assignment.newsfeed.dto.tp.CommentDTO;
+import com.assignment.newsfeed.dto.tp.StoryDTO;
+import com.assignment.newsfeed.dto.tp.UserDTO;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
 
 public interface NewsService {
 
-	Mono<List<Story>> fetchStories(int n);
+	Mono<List<StoryDTO>> fetchStories(int n);
 
-	Mono<Story> fetchStoryById(long storyId);
+	Mono<StoryDTO> fetchStoryById(long storyId);
 
-	List<Comment> fetchComments(List<Long> commentIds);
+	UserDTO fetchUser(String userId);
+
+	List<CommentDTO> fetchComments(List<Long> commentIds);
 }

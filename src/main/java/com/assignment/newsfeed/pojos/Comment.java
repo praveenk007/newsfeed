@@ -1,5 +1,6 @@
 package com.assignment.newsfeed.pojos;
 
+import com.assignment.newsfeed.dto.CommentDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,6 +27,8 @@ public class Comment implements Comparable<Comment> {
 
 	private String author;
 
+	private int profileAge;
+
 	private String text;
 
 	private long parent;
@@ -48,5 +51,14 @@ public class Comment implements Comparable<Comment> {
 			return 1;
 		}
 		return 0;
+	}
+
+	public CommentDTO toDto() {
+		return CommentDTO.builder()
+				.author(getAuthor())
+				.profileAge(getProfileAge())
+				.text(getText())
+				.id(getId())
+				.build();
 	}
 }

@@ -1,5 +1,6 @@
 package com.assignment.newsfeed.controller;
 
+import com.assignment.newsfeed.dto.CommentDTO;
 import com.assignment.newsfeed.dto.StoryDTO;
 import com.assignment.newsfeed.pojos.Comment;
 import com.assignment.newsfeed.pojos.Story;
@@ -36,7 +37,7 @@ public class NewsFeedController {
 	}
 
 	@GetMapping("/comments/{storyId}")
-	public Mono<List<Comment>> fetchComment(@PathVariable("storyId") final long storyId) {
-		return feedService.fetchComments(storyId);
+	public Mono<List<CommentDTO>> fetchComment(@PathVariable("storyId") final long storyId) {
+		return feedService.fetchComments(storyId).map(comments -> comments.stream().map(Comment::toDto).collect(Collectors.toList()));
 	}
 }
