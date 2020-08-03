@@ -79,28 +79,22 @@ public class HackerNewsService implements NewsService {
 		commentIds.forEach(commentId -> {
 			final JsonNode jsonNode = nonReactiveWebClient.get("https://hacker-news.firebaseio.com/v0/item/" + commentId + ".json?print=pretty");
 			final Comment comment = Comment.builder()
-					//.author(jsonNode.get("by").asText())
-					//.text(jsonNode.get("text").asText())
-					.parent(jsonNode.get("parent").asLong())
+					.author(jsonNode.get("by") != null ? jsonNode.get("by").asText() : null)
+					.text(jsonNode.get("text") != null ? jsonNode.get("text").asText() : null)
+					.parent(jsonNode.get("parent") != null ? jsonNode.get("parent").asLong() : 0L)
 					.id(jsonNode.get("id").asLong())
 					.build();
-			if(jsonNode.get("by") != null) {
-				comment.setAuthor(jsonNode.get("by").asText());
-			}
-			if(jsonNode.get("text") != null) {
-				comment.setText(jsonNode.get("text").asText());
-			}
 			comments.add(comment);
-			JsonNode kids = jsonNode.get("kids");
-			if(kids == null) {
-				return;
-			}
-			ObjectReader reader = new ObjectMapper().readerFor(new TypeReference<List<Long>>() {
-			});
-			try {
-				comment.setComments(reader.readValue(kids));
-			} catch (IOException e) {
-				e.printStackTrace();
+			final JsonNode kids = jsonNode.get("kids");
+			if(kids != null) {
+				ObjectReader reader = new ObjectMapper().readerFor(new TypeReference<List<Long>>() {
+				});
+				try {
+					comment.setComments(reader.readValue(kids));
+				} catch (IOException e) {
+					//TODO replace with logger
+					e.printStackTrace();
+				}
 			}
 		});
 		return comments;
@@ -140,6 +134,7 @@ public class HackerNewsService implements NewsService {
 							list = reader.readValue(kids);
 							storyDto.setChildren(list);
 						} catch (IOException e) {
+							//TODO replace with logger
 							e.printStackTrace();
 						}
 						return storyDto;
